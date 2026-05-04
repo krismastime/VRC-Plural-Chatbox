@@ -1,0 +1,36 @@
+{
+    "attempt_reconnect": true,
+    "visible_on_load": true,
+    "enable_status": true,
+    "vrc_info": {
+        "vrc_user": "",
+        "vrc_pass": "",
+        "vrc_userid": ""
+    },
+    "chatbox": {
+        "generic": "#fronter\n#pronouns",
+        "time_digital": "#fronter\n#pronouns\nFronting #time",
+        "time_full": "#fronter\n#pronouns\nFronting #time",
+        "afk": "#fronter is\nnot here right now!",
+        "status": "#fronter"
+    },
+    "keybinds": {
+        "Close Programme": "ctrl+page down",
+        "Toggle Time": "ctrl+page up",
+        "Time Format": "alt+page up",
+        "Toggle Chatbox": "ctrl+home",
+        "Show AFK": "ctrl+up",
+        "Force Update": "ctrl+u"
+    },
+    "memberdict": {
+        "Member ID": {
+            "name": "Member Name",
+            "avatar": "Avatar ID",
+            "pronouns": "Member Pronouns"
+        }
+    },
+    "auths": {
+        "auth": "unknown",
+        "twoFactorAuth": "unknown"
+    }
+}
