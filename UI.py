@@ -26,6 +26,8 @@ from PyQt6.QtWidgets import (
     QTextBrowser,
     QGridLayout,
     QInputDialog,
+    QDialog,
+    QDialogButtonBox
 )
 from PyQt6.QtGui import QColor, QPalette
 
@@ -33,7 +35,7 @@ class Program():
     def __init__(self):
         super().__init__()
 
-    def sp2vrc_start(self,chatbox_preview,logger):
+    def vrchat_plural_start(self,chatbox_preview,logger):
         vrchat_plural_library.taskcancelled = False
         save_data()
         loop = asyncio.new_event_loop()
@@ -81,28 +83,6 @@ class Worker(QRunnable):
             self.signals.result.emit(result)
         finally:
             self.signals.finished.emit(self.thread_id)
-
-class keybinds_widget(QWidget):
-    def __init__(self):
-        super().__init__()
-
-        layout = QVBoxLayout()
-        keybinds_widget.keybinds = {
-            "Close Programme":QLineEdit(),
-            "Toggle Time":QLineEdit(),
-            "Time Format":QLineEdit(),
-            "Toggle Chatbox":QLineEdit(),
-            "Show AFK":QLineEdit(),
-            "Force Update":QLineEdit()
-        }
-        
-        for i in keybinds_widget.keybinds:
-            temp_layout = QHBoxLayout()
-            temp_layout.addWidget(QLabel(text=i))
-            temp_layout.addWidget(keybinds_widget.keybinds[i])
-            layout.addLayout(temp_layout)
-        
-        self.setLayout(layout)
 
 
 class login_widget(QWidget):
@@ -203,80 +183,157 @@ class login_widget(QWidget):
         
         return user
 
+class CustomDialog(QDialog):
+    def __init__(self,message="Error"):
+        super().__init__()
+
+        self.setWindowTitle("VRChat Pural Chatbox")
+
+        QBtn = QDialogButtonBox.StandardButton.Ok
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+
+
+        layout = QVBoxLayout()
+        QMessage = QLabel(message)
+        layout.addWidget(QMessage)
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
 
 class member_widget(QWidget):
     def __init__(self):
         super().__init__()
 
+        s, tb = load_settings(x=2)
+        member_widget.memberdict = s["memberdict"]
+
         member_widget.layoutall = QVBoxLayout()
         member_widget.columns = QHBoxLayout()
+
+        member_widget.newMember = QHBoxLayout()
+
+        member_widget.newName = QLineEdit()
+        self.newName.setPlaceholderText("Name")
+        self.newMember.addWidget(self.newName)
+        member_widget.newPronouns = QLineEdit()
+        self.newPronouns.setPlaceholderText("Pronouns")
+        self.newMember.addWidget(self.newPronouns)
+        member_widget.newAvatarID = QLineEdit()
+        self.newAvatarID.setPlaceholderText("Avatar ID")
+        self.newMember.addWidget(self.newAvatarID)
+        
+
+        member_widget.addMember = QPushButton(text="Add Member")
+        self.addMember.clicked.connect(self.add_member)
+
         self.columns.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layoutall.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        self.layoutall.addWidget(self.addMember)
+        self.layoutall.addLayout(self.newMember)
         self.layoutall.addLayout(self.columns)
         self.setLayout(self.layoutall)
+        self.list_members()
 
-    def list_members(self,settings,memberdict):
+    def add_member(self):
+        alert = QDialog()
+        if len(self.newName.text()) < 1:
+            dlg = CustomDialog(message="Member name cannot be empty")
+            dlg.exec()
+            return
+
+        self.memberdict[self.newName.text()] = {"avatar":self.newAvatarID.text(),"pronouns":self.newPronouns.text()}
+
+        print(self.memberdict)
+        self.newName.setText("")
+        self.newPronouns.setText("")
+        self.newAvatarID.setText("")
+        self.list_members() #keeps layering everything on top of itself
+        return
+
+    def list_members(self):
 
         columns = self.columns
         for i in columns.children():
             columns.removeItem(i)
 
-        for i in memberdict:
-            if i in settings["memberdict"]:
-                if memberdict[i][1] != settings["memberdict"][i]["pronouns"]:
-                    settings["memberdict"][i]["pronouns"] = memberdict[i][1]
-            else:
-                settings["memberdict"][i] = {
-                    "name":memberdict[i][0],
-                    "avatar":"",
-                    "pronouns":memberdict[i][1]
-                    }
+        # for i in memberdict:
+        #     if i in settings["memberdict"]:
+        #         print(memberdict[i][1])
+        #         if memberdict[i][1] != settings["memberdict"][i]["pronouns"]:
+        #             settings["memberdict"][i]["pronouns"] = memberdict[i][1]
+        #     else:
+        #         settings["memberdict"][i] = {
+        #             "name":memberdict[i][0],
+        #             "avatar":"",
+        #             "pronouns":memberdict[i][1]
+        #             }
         
         id = QVBoxLayout()
-        name = QVBoxLayout()
+        pronouns = QVBoxLayout()
         avatar = QVBoxLayout()
+        front = QVBoxLayout()
 
         for i in id.children():
             id.removeItem(i)
-        for i in name.children():
-            name.removeItem(i)
+        for i in pronouns.children():
+            pronouns.removeItem(i)
         for i in avatar.children():
             avatar.removeItem(i)
         
         id.setSpacing(0)
-        id_label = QLabel(text="ID")
+        id_label = QLabel(text="Name")
         id.addWidget(id_label)
         
-        name.setSpacing(0)
-        name_label = QLabel(text="Name")
-        name.addWidget(name_label)
-        
+        pronouns.setSpacing(0)
+        pronouns_label = QLabel(text="Pronouns")
+        pronouns.addWidget(pronouns_label)
+
+        front.setSpacing(0)
+        front_label = QLabel(text="Fronting")
+        front.addWidget(front_label)
+
         avatar.setSpacing(0)
         avatar_label = QLabel(text="Avatar ID")
         avatar.addWidget(avatar_label)
         member_widget.id_boxes = []
-        member_widget.name_boxes = []
+        member_widget.pronouns_boxes = []
         member_widget.avatar_boxes = []
-        member_widget.memberdict = memberdict
+        member_widget.front_boxes = []
+        #member_widget.memberdict = memberdict
 
-        for i in settings["memberdict"]:
-            if i != "Member ID":
+        for i in self.memberdict:
+            if i != "name":
                 member_widget.id_boxes.append(QLabel(text=i))
-                member_widget.name_boxes.append(QLabel(text=settings["memberdict"][i]["name"]))
-                member_widget.avatar_boxes.append(QLineEdit(text=settings["memberdict"][i]["avatar"]))
+                member_widget.pronouns_boxes.append(QLabel(text=self.memberdict[i]["pronouns"]))
+                member_widget.avatar_boxes.append(QLineEdit(text=self.memberdict[i]["avatar"]))
+                member_widget.front_boxes.append(QPushButton(text="↑")) ##↑↓
+                
         
         for i in range(len(member_widget.id_boxes)):
             id.addWidget(member_widget.id_boxes[i])
-            name.addWidget(member_widget.name_boxes[i])
+            pronouns.addWidget(member_widget.pronouns_boxes[i])
             avatar.addWidget(member_widget.avatar_boxes[i])
+            self.front_boxes[i].clicked.connect(self.front_toggle)
+            front.addWidget(member_widget.front_boxes[i])
+
 
         columns.addLayout(id)
-        columns.addLayout(name)
+        columns.addLayout(pronouns)
         columns.addLayout(avatar)
+        columns.addLayout(front)
 
         self.setLayout(self.layoutall)
         
+    def front_toggle(self,i):
+        print(self.id_boxes[i].text())
+        if self.front_boxes[i].text() == "↑":
+            self.front_boxes[i].setText("↓")
+        else:
+            self.front_boxes[i].setText("↑")
+        return
+
 class chatbox_preview(QWidget):
     def __init__(self):
         super().__init__()
@@ -311,14 +368,13 @@ class options_widget(QWidget):
         layout = QVBoxLayout()
 
         visibleOnStart = QCheckBox(text="Chatbox Visible by Default")
-        attemptReconnect = QCheckBox(text="Attempt Reconnect")
         generic = QTextEdit()
         time_digital = QTextEdit()
         time_full = QTextEdit()
         afk = QTextEdit()
         status = QTextEdit()
 
-        options_widget.widgets = [visibleOnStart,attemptReconnect,generic,time_digital,time_full,afk,status]
+        options_widget.widgets = [visibleOnStart,generic,time_digital,time_full,afk,status]
 
         layout.addWidget(QLabel(text="Default Chatbox"))
         layout.addWidget(generic)
@@ -331,7 +387,6 @@ class options_widget(QWidget):
         layout.addWidget(QLabel(text="Status Message (if logged in)"))
         layout.addWidget(status)
         layout.addWidget(visibleOnStart)
-        layout.addWidget(attemptReconnect)
         self.setLayout(layout)
 
 class start_options(QWidget):
@@ -383,7 +438,6 @@ class start_options(QWidget):
         try:
             settings, tracebackText = load_settings(2)
             self.traceback.setText(tracebackText)
-            import_data(settings=settings)
         except Exception as e:
             self.traceback.setText("Unable to read or generate settings")
             print(e)
@@ -397,7 +451,7 @@ class start_options(QWidget):
     def reset_button(self):
         with open("settings.json","w") as file:
             file.write("")
-        load_settings(3)
+        load_settings(2)
         self.traceback.setText("Reset settings to defaults")
 
 class MainWindow(QMainWindow):
@@ -414,13 +468,11 @@ class MainWindow(QMainWindow):
 
         self.draw_layout()
 
-        import_data(load_settings(0))
 
     def draw_layout(self):
         layout = QGridLayout()
 
         layout.addWidget(login_widget(),0,0,alignment=Qt.AlignmentFlag.AlignTop)
-        layout.addWidget(keybinds_widget(),1,0,alignment=Qt.AlignmentFlag.AlignTop)
         layout.addWidget(output_log(),2,0,alignment=Qt.AlignmentFlag.AlignTop)
         layout.addWidget(start_options(),3,0,alignment=Qt.AlignmentFlag.AlignBottom)
 
@@ -433,12 +485,6 @@ class MainWindow(QMainWindow):
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
-    def start():
-        program = Program()
-        startup = Worker(program.sp2vrc_start)
-        startup.signals.chatbox.connect(program.chatbox_fn)
-        startup.signals.logger.connect(program.logging_fn)
-        MainWindow.threadpool.start(startup)
 
 def getCheckboxState(state):
     if state == True:
@@ -457,21 +503,6 @@ def load_settings(x=0):
     else:
         return
 
-def import_data(settings):
-    options_widget.widgets[0].setCheckState(Qt.CheckState(getCheckboxState(settings["visible_on_load"])))
-    options_widget.widgets[1].setCheckState(Qt.CheckState(getCheckboxState(settings["attempt_reconnect"])))
-    login_widget.widgets[4].setCheckState(Qt.CheckState(getCheckboxState(settings["enable_status"])))
-    options_widget.widgets[2].setPlainText(settings["chatbox"]["generic"])
-    options_widget.widgets[3].setPlainText(settings["chatbox"]["time_digital"])
-    options_widget.widgets[4].setPlainText(settings["chatbox"]["time_full"])
-    options_widget.widgets[5].setPlainText(settings["chatbox"]["afk"])
-    options_widget.widgets[6].setPlainText(settings["chatbox"]["status"])
-    login_widget.widgets[1].setText(settings["vrc_info"]["vrc_user"])
-    login_widget.widgets[2].setText(settings["vrc_info"]["vrc_pass"])
-    login_widget.widgets[3].setText(settings["vrc_info"]["vrc_userid"])
-    for i in keybinds_widget.keybinds:
-        keybinds_widget.keybinds[i].setText(settings["keybinds"][i])
-
 def save_data():
     try:
         auths = vrchat_plural_library.vrc_login.auths
@@ -479,38 +510,8 @@ def save_data():
         with open("settings.json") as file:
             settings = json.load(file)
         auths = settings["auths"]
-    if int(member_widget.columns.count()) < 3:
-        start_options.traceback.setText("Member list cannot be empty, gather members first.")
-    else:
         temp_save = {
-            "visible_on_load": options_widget.widgets[0].isChecked(),
-            "attempt_reconnect": options_widget.widgets[1].isChecked(),
-            "enable_status": login_widget.widgets[4].isChecked(),
-            "vrc_info": {
-                "vrc_user": login_widget.widgets[1].text(),
-                "vrc_pass": login_widget.widgets[2].text(),
-                "vrc_userid": login_widget.widgets[3].text()
-            },
-            "chatbox": {
-                "generic": options_widget.widgets[2].toPlainText(),
-                "time_digital": options_widget.widgets[3].toPlainText(),
-                "time_full": options_widget.widgets[4].toPlainText(),
-                "afk": options_widget.widgets[5].toPlainText(),
-                "status": options_widget.widgets[6].toPlainText(),
-            },
-            "keybinds":{},
-            "memberdict":{},
-            "auths":auths
-        }
-        for i in range(len(member_widget.id_boxes)):
-            temp_save["memberdict"][member_widget.id_boxes[i].text()] = {
-                "name": member_widget.name_boxes[i].text(),
-                "avatar": member_widget.avatar_boxes[i].text(),
-                "pronouns": member_widget.memberdict[member_widget.id_boxes[i].text()][1]
             }
-
-        for i in keybinds_widget.keybinds:
-            temp_save["keybinds"][i] = keybinds_widget.keybinds[i].text()
 
         with open("settings.json","w") as file:
             json.dump(temp_save,file,indent=4)

@@ -53,11 +53,54 @@ async def update_chatbox():
             print("Unable to send chatbox update to OSC.")
             print(e)
         await asyncio.sleep(2)
+        
+async def cancelcheck():
+    while True:
+        if taskcancelled == True:
+            raise TerminateTG()
+        await asyncio.sleep(1)
+
+def time_text(whenfrom,timeformat):
+    now = time.time()
+    timespan = int(abs(now - (whenfrom)))
+    delta = timedelta(seconds=timespan)
+    if timeformat == "digital":
+        fronttimespan = delta
+    else:
+        if timespan < 60:
+            fronttimespan = "less than a minute"
+        elif timespan > 60 and timespan < 3600:
+            fronttimespan = str(timespan//60)+" mins"
+        else:
+            fronttimespan = str(timespan//3600)+" hrs "+str((timespan//60)-((timespan//3600)*60))+" mins"
+    return str(fronttimespan)
+
+def chat_format(i,fronters,pronouns):
+    return i.replace("#fronter",fronters).replace("#pronouns",pronouns).replace("#time",time_text(max(frontStart),timeformat))
+
+async def status_string(settings):
+    global aloop, frontID
+
+    try:
+        current_user = vrc_login.current_user
+        user_var = vrc_login.user_var
+        while True:
+            try:
+                await asyncio.sleep(70)
+                status = settings["chatbox"]["status"] #Edit this to allow for more than 1 fronter, frontID is a list, check for list length
+                status = status.replace("#fronter",str(settings["memberdict"][frontID[0]]["name"])).replace("#pronouns",str(settings["memberdict"][frontID[0]]["pronouns"]))
+                request = {'statusDescription':status}
+                print(request)
+                user_var.update_user(user_id=settings["vrc_info"]["vrc_userid"],update_user_request=request)
+            except Exception as e:
+                print(e)
+                await asyncio.sleep(10)
+    except:
+        print("Lost connection to VRChat API")
 
 class read_options_from_ui:
 
     default_settings = {
-        "attempt_reconnect":True,
         "visible_on_load":True,
         "enable_status":True,
         "vrc_info":{
@@ -81,8 +124,7 @@ class read_options_from_ui:
             "Force Update":"ctrl+u"
         },
         "memberdict":{
-            "Member ID":{
-                "name": "Member Name",
+            "name":{
                 "avatar":"Avatar ID",
                 "pronouns":"Member Pronouns"
             }
@@ -148,17 +190,6 @@ class read_options_from_ui:
                 noErrors += 1
                 error += "\nError retrieving VRChat Information."
                 settings["vrc_info"] = defaults["vrc_info"]
-
-            try:
-                reconnect = settings["attempt_reconnect"]
-                if reconnect != True and reconnect != False:
-                    error += "\nError determining if reconnect is True/False"
-                    settings["attempt_reconnect"] = defaults["attempt_reconnect"]
-                    noErrors += 1
-            except:
-                noErrors += 1
-                error += "\nError retrieving reconnect value."
-                settings["attempt_reconnect"] = defaults["attempt_reconnect"]
 
             try:
                 chatboxVisibility = settings["visible_on_load"]

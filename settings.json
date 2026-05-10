@@ -1,12 +1,4 @@
 {
-    "attempt_reconnect": true,
-    "visible_on_load": true,
-    "enable_status": true,
-    "vrc_info": {
-        "vrc_user": "",
-        "vrc_pass": "",
-        "vrc_userid": ""
-    },
     "chatbox": {
         "generic": "#fronter\n#pronouns",
         "time_digital": "#fronter\n#pronouns\nFronting #time",
@@ -14,6 +6,11 @@
         "afk": "#fronter is\nnot here right now!",
         "status": "#fronter"
     },
+    "auths": {
+        "auth": "unknown",
+        "twoFactorAuth": "unknown"
+    },
+    "enable_status": true,
     "keybinds": {
         "Close Programme": "ctrl+page down",
         "Toggle Time": "ctrl+page up",
@@ -22,15 +19,16 @@
         "Show AFK": "ctrl+up",
         "Force Update": "ctrl+u"
     },
+    "vrc_info": {
+        "vrc_user": "",
+        "vrc_pass": "",
+        "vrc_userid": ""
+    },
+    "visible_on_load": true,
     "memberdict": {
-        "Member ID": {
-            "name": "Member Name",
+        "name": {
             "avatar": "Avatar ID",
             "pronouns": "Member Pronouns"
         }
-    },
-    "auths": {
-        "auth": "unknown",
-        "twoFactorAuth": "unknown"
     }
 }
