@@ -208,8 +208,16 @@ class member_widget(QWidget):
         s, tb = load_settings(x=2)
         member_widget.memberdict = s["memberdict"]
 
+        member_widget.fronters = []
+
         member_widget.layoutall = QVBoxLayout()
         member_widget.columns = QHBoxLayout()
+
+        member_widget.id = QVBoxLayout()
+        member_widget.pronouns = QVBoxLayout()
+        member_widget.avatar = QVBoxLayout()
+        member_widget.front = QVBoxLayout()
+        member_widget.deleteBtn = QVBoxLayout()
 
         member_widget.newMember = QHBoxLayout()
 
@@ -254,10 +262,6 @@ class member_widget(QWidget):
 
     def list_members(self):
 
-        columns = self.columns
-        for i in columns.children():
-            columns.removeItem(i)
-
         # for i in memberdict:
         #     if i in settings["memberdict"]:
         #         print(memberdict[i][1])
@@ -269,70 +273,100 @@ class member_widget(QWidget):
         #             "avatar":"",
         #             "pronouns":memberdict[i][1]
         #             }
-        
-        id = QVBoxLayout()
-        pronouns = QVBoxLayout()
-        avatar = QVBoxLayout()
-        front = QVBoxLayout()
 
-        for i in id.children():
-            id.removeItem(i)
-        for i in pronouns.children():
-            pronouns.removeItem(i)
-        for i in avatar.children():
-            avatar.removeItem(i)
-        
-        id.setSpacing(0)
+        for i in reversed(range(self.id.count())):
+            self.id.itemAt(i).widget().setParent(None)
+            self.pronouns.itemAt(i).widget().setParent(None)
+            self.avatar.itemAt(i).widget().setParent(None)
+            self.front.itemAt(i).widget().setParent(None)
+            self.deleteBtn.itemAt(i).widget().setParent(None)
+
+        for i in self.columns.children():
+            self.columns.removeItem(i)
+
+        self.id.setSpacing(0)
         id_label = QLabel(text="Name")
-        id.addWidget(id_label)
+        self.id.addWidget(id_label)
         
-        pronouns.setSpacing(0)
+        self.pronouns.setSpacing(0)
         pronouns_label = QLabel(text="Pronouns")
-        pronouns.addWidget(pronouns_label)
+        self.pronouns.addWidget(pronouns_label)
 
-        front.setSpacing(0)
+        self.front.setSpacing(0)
         front_label = QLabel(text="Fronting")
-        front.addWidget(front_label)
+        self.front.addWidget(front_label)
 
-        avatar.setSpacing(0)
+        self.deleteBtn.setSpacing(0)
+        delete_label = QLabel(text="Delete")
+        self.deleteBtn.addWidget(delete_label)
+
+        self.avatar.setSpacing(0)
         avatar_label = QLabel(text="Avatar ID")
-        avatar.addWidget(avatar_label)
+        self.avatar.addWidget(avatar_label)
+
         member_widget.id_boxes = []
         member_widget.pronouns_boxes = []
         member_widget.avatar_boxes = []
+        member_widget.member_number = []
         member_widget.front_boxes = []
+        member_widget.delete_boxes = []
+
         #member_widget.memberdict = memberdict
+        a = 0
 
         for i in self.memberdict:
             if i != "name":
-                member_widget.id_boxes.append(QLabel(text=i))
-                member_widget.pronouns_boxes.append(QLabel(text=self.memberdict[i]["pronouns"]))
-                member_widget.avatar_boxes.append(QLineEdit(text=self.memberdict[i]["avatar"]))
-                member_widget.front_boxes.append(QPushButton(text="↑")) ##↑↓
+                self.id_boxes.append(QLabel(text=i))
+                self.pronouns_boxes.append(QLabel(text=self.memberdict[i]["pronouns"]))
+                self.avatar_boxes.append(QLineEdit(text=self.memberdict[i]["avatar"]))
+                self.front_boxes.append(QPushButton(text="✗")) ##↑↓
+                self.delete_boxes.append(QPushButton(text="🗑"))
+                self.member_number.append(a)
+                a += 1
                 
         
-        for i in range(len(member_widget.id_boxes)):
-            id.addWidget(member_widget.id_boxes[i])
-            pronouns.addWidget(member_widget.pronouns_boxes[i])
-            avatar.addWidget(member_widget.avatar_boxes[i])
-            self.front_boxes[i].clicked.connect(self.front_toggle)
-            front.addWidget(member_widget.front_boxes[i])
+        for i in range(len(self.id_boxes)):
+            self.id.addWidget(self.id_boxes[i])
+            self.pronouns.addWidget(self.pronouns_boxes[i])
+            self.avatar.addWidget(self.avatar_boxes[i])
 
+            self.front.addWidget(self.front_boxes[i])
+            self.deleteBtn.addWidget(self.delete_boxes[i])
 
-        columns.addLayout(id)
-        columns.addLayout(pronouns)
-        columns.addLayout(avatar)
-        columns.addLayout(front)
+        for widget in self.member_number:
+            try:
+                self.connect_front(self.front_boxes[widget],widget)
+                self.connect_delete(self.delete_boxes[widget],widget)
+            except:
+                continue
+
+        self.columns.addLayout(self.id)
+        self.columns.addLayout(self.pronouns)
+        self.columns.addLayout(self.avatar)
+        self.columns.addLayout(self.front)
+        self.columns.addLayout(self.deleteBtn)
 
         self.setLayout(self.layoutall)
-        
+    
+    def connect_front(self, widget,num):
+        widget.clicked.connect(lambda: self.front_toggle(num))
+
+    def connect_delete(self,widget,num):
+        widget.clicked.connect(lambda: self.delete_member(num))
+
     def front_toggle(self,i):
-        print(self.id_boxes[i].text())
-        if self.front_boxes[i].text() == "↑":
-            self.front_boxes[i].setText("↓")
+        if self.front.itemAt(i+1).widget().text() == "✗":
+            self.front.itemAt(i+1).widget().setText("✓")
+            self.fronters.append(str(self.id.itemAt(i+1).widget().text()))
         else:
-            self.front_boxes[i].setText("↑")
+            self.front.itemAt(i+1).widget().setText("✗")
+            self.fronters.remove(str(self.id.itemAt(i+1).widget().text()))
+        print(self.fronters)
         return
+    
+    def delete_member(self,i):
+        self.memberdict.pop(str(self.id.itemAt(i+1).widget().text()))
+        self.list_members()
 
 class chatbox_preview(QWidget):
     def __init__(self):
@@ -510,12 +544,14 @@ def save_data():
         with open("settings.json") as file:
             settings = json.load(file)
         auths = settings["auths"]
-        temp_save = {
-            }
+    collection = {
+        "auths":auths,
+        "memberdict": member_widget.memberdict,
+        }
 
-        with open("settings.json","w") as file:
-            json.dump(temp_save,file,indent=4)
-        start_options.traceback.setText("Saved!")
+    with open("settings.json","w") as file:
+        json.dump(collection,file,indent=4)
+    start_options.traceback.setText("Saved!")
 
 app = QApplication(sys.argv)
 
