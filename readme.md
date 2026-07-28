@@ -129,6 +129,8 @@ I have tried my best to prevent this from happening, but there may still be some
 
 In this new version, not reliant on the now defunct SimplyPlural, I have not yet had the opportunity to allow you to change your status properly. This will come in a future update.
 
+Keybinds may not be functioning at this moment.
+
 # 4. Libraries
 
 Packaged with this application are the following non built-in libraries:
