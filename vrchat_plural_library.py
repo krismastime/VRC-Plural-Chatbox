@@ -1,4 +1,4 @@
-import json, asyncio, time, http.client, logging, threading
+import json, asyncio, time, http.client, logging, threading, __main__
 from pynput import mouse, keyboard
 from http.cookiejar import Cookie, CookieJar
 from datetime import timedelta, datetime
@@ -14,7 +14,9 @@ from vrchatapi.models.two_factor_auth_code import TwoFactorAuthCode
 from vrchatapi.models.two_factor_email_code import TwoFactorEmailCode
 from vrchatapi.api.users_api import UsersApi
 
-global timeformat, pingtime, frontID, frontStart, message, chatbox, chatboxVisibility, timerVisibility, afk, aloop, vrc_loggedin, ip, port, client, taskcancelled
+global timeformat, pingtime, frontID, frontStart, message, chatbox, chatboxVisibility, timerVisibility, afk, aloop, vrc_loggedin, taskcancelled, cbx_unedited, client
+client = udp_client.SimpleUDPClient("127.0.0.1",9000)
+cbx_unedited = ""
 timeformat = "digital"
 pingtime = time.time()
 frontID = []
@@ -24,35 +26,58 @@ chatbox = ""
 timerVisibility = False
 afk = False
 aloop = ""
+front = []
 vrc_loggedin = False
-ip = "127.0.0.1"
-port = 9000
-client = udp_client.SimpleUDPClient(ip,port)
 taskcancelled = False
 
-def update_avatar(settings):
+def update_avatar(avatar):
+    global client
     try:
-        print("Attempting to update avatar...")
-        avatarID = settings["memberdict"][frontID[-1]]["avatar"]
-        client.send_message("/avatar/change",avatarID)
+        log.emit("Updated avatar to"+avatar)
+        client.send_message("/avatar/change",avatar)
     except Exception as e:
-        print("Unable to update avatar, ignoring.")
+        log.emit("Unable to update avatar, ignoring.\n"+str(e))
 
-async def update_chatbox():
-    global chatboxVisibility, chatbox
+async def update_chatbox(logger):
+    global cbx, client
     while True:
         try:
             if chatboxVisibility == True:
-                client.send_message("/chatbox/input",[chatbox,True,False])
+                client.send_message("/chatbox/input",[cbx,True,False])
+                if cbx != "":
+                    logger.emit("Chatbox refreshed. (3s)")
             else:
-                chatbox = ""
-                client.send_message("/chatbox/input",[chatbox,True,False])
+                cbx = ""
+                client.send_message("/chatbox/input",[cbx,True,False])
                 while chatboxVisibility == False:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(3)
         except Exception as e:
             print("Unable to send chatbox update to OSC.")
             print(e)
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
+    
+async def fronter_format(fronters):
+    global chatbox, cbx
+    cbx = ""
+    names = ""
+    pronouns = ""
+    for i in fronters:
+        names = names+str(i)+"|"
+        pronouns = pronouns+str(fronters[i]["pronouns"])+"|"
+    names = names[:-1]
+    pronouns = pronouns[:-1]
+    try:
+        update_avatar(fronters[i]["avatar"])
+    except:
+        return
+    cbx = chatbox.replace("#fronter",names).replace("#pronouns",pronouns)
+    cbxlog.emit(cbx)
+    await asyncio.sleep(1)
+
+def chatbox_format(cbx):
+    global chatbox
+    print(cbx)
+    chatbox = cbx
         
 async def cancelcheck():
     while True:
@@ -87,7 +112,7 @@ async def status_string(settings):
         while True:
             try:
                 await asyncio.sleep(70)
-                status = settings["chatbox"]["status"] #Edit this to allow for more than 1 fronter, frontID is a list, check for list length
+                status = settings["chatboxes"]["status"] #Edit this to allow for more than 1 fronter, frontID is a list, check for list length
                 status = status.replace("#fronter",str(settings["memberdict"][frontID[0]]["name"])).replace("#pronouns",str(settings["memberdict"][frontID[0]]["pronouns"]))
                 request = {'statusDescription':status}
                 print(request)
@@ -108,12 +133,8 @@ class read_options_from_ui:
             "vrc_pass":"",
             "vrc_userid":"",
         },
-        "chatbox":{
-            "generic":"#fronter\n#pronouns",
-            "time_digital":"#fronter\n#pronouns\nFronting #time",
-            "time_full":"#fronter\n#pronouns\nFronting #time",
-            "afk":"#fronter is\nnot here right now!",
-            "status":"#fronter"
+        "chatboxes":{
+            "generic":"#fronter\n#pronouns"
         },
         "keybinds":{
             "Close Programme":"ctrl+page down",
@@ -144,11 +165,11 @@ class read_options_from_ui:
                 settings = json.load(file)
 
             try:
-                chatboxes = settings["chatbox"]
+                chatboxes = settings["chatboxes"]
             except:
                 noErrors += 1
                 error += "\nError retrieving chatbox."
-                settings["chatbox"] = defaults["chatbox"]
+                settings["chatboxes"] = defaults["chatboxes"]
 
             try:
                 auth_cookie = settings["auths"]["auth"]
@@ -273,22 +294,22 @@ class set_keybinds():
 
     def update_keybinds(settings):
         keybinds = settings["keybinds"]
-        kb_reformat = {}
-        for i in keybinds:
-            kb_reformat[i] = keybinds[i].replace("lctrl","<ctrl_l>").replace("rctrl","<ctrl_r>")
-        with keyboard.GlobalHotKeys({
-            "": set_keybinds.cancel,
-            "": set_keybinds.show_time,
-            "": set_keybinds.time_format,
-            "": set_keybinds.show_chatbox,
-            "": set_keybinds.show_afk
-        }) as hotkeys:
-            hotkeys.join()
-        keyboard.add_hotkey(keybinds["Close Programme"],set_keybinds.cancel)
-        keyboard.add_hotkey(keybinds["Toggle Time"],set_keybinds.show_time)
-        keyboard.add_hotkey(keybinds["Time Format"],set_keybinds.time_format)
-        keyboard.add_hotkey(keybinds["Toggle Chatbox"],set_keybinds.show_chatbox)
-        keyboard.add_hotkey(keybinds["Show AFK"],set_keybinds.show_afk)
+        # kb_reformat = {}
+        # for i in keybinds:
+        #     kb_reformat[i] = keybinds[i].replace("lctrl","<ctrl_l>").replace("rctrl","<ctrl_r>")
+        # with keyboard.GlobalHotKeys({
+        #     "": set_keybinds.cancel,
+        #     "": set_keybinds.show_time,
+        #     "": set_keybinds.time_format,
+        #     "": set_keybinds.show_chatbox,
+        #     "": set_keybinds.show_afk
+        # }) as hotkeys:
+        #     hotkeys.join()
+        # keyboard.add_hotkey(keybinds["Close Programme"],set_keybinds.cancel)
+        # keyboard.add_hotkey(keybinds["Toggle Time"],set_keybinds.show_time)
+        # keyboard.add_hotkey(keybinds["Time Format"],set_keybinds.time_format)
+        # keyboard.add_hotkey(keybinds["Toggle Chatbox"],set_keybinds.show_chatbox)
+        # keyboard.add_hotkey(keybinds["Show AFK"],set_keybinds.show_afk)
 
 def make_cookie(name, value):
     return Cookie(0, name, value,
@@ -376,3 +397,27 @@ class vrc_login:
 
         except vrchatapi.exceptions.ApiException as e: #General exception from the user end
             return "Unable to sign in, you may have timed out."      
+        
+async def main(settings,chatbox_preview,logger):
+    global frontID, frontStart, chatboxVisibility,taskcancelled, log,cbxlog
+    log = logger
+    cbxlog = chatbox_preview
+    log = logger
+    taskcancelled = False
+    chatboxVisibility = settings["visible_on_load"]
+    set_keybinds.update_keybinds(settings)
+    print("Starting")
+    while taskcancelled == False:
+        try:
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(update_chatbox(logger))
+                #tg.create_task(status_string(settings))
+                tg.create_task(cancelcheck())
+        except Exception as e:
+            if taskcancelled == True:
+                logger.emit("Closing...")
+                chatbox_preview.emit("Not Connected")
+                return
+            else:
+                logger.emit("Disconnected. Read exception for details:\n"+str(e))
+                return

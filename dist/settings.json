@@ -1,0 +1,30 @@
+{
+    "auths": {
+        "auth": "unknown",
+        "twoFactorAuth": "unknown"
+    },
+    "memberdict": {
+        "name": {
+            "avatar": "Avatar ID",
+            "pronouns": "Member Pronouns"
+        }
+    },
+    "chatboxes": {
+        "generic": "#fronter\n#pronouns"
+    },
+    "enable_status": true,
+    "keybinds": {
+        "Close Programme": "ctrl+page down",
+        "Toggle Time": "ctrl+page up",
+        "Time Format": "alt+page up",
+        "Toggle Chatbox": "ctrl+home",
+        "Show AFK": "ctrl+up",
+        "Force Update": "ctrl+u"
+    },
+    "vrc_info": {
+        "vrc_user": "",
+        "vrc_pass": "",
+        "vrc_userid": ""
+    },
+    "visible_on_load": true
+}

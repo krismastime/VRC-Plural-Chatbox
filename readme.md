@@ -19,9 +19,9 @@ This application uses [VRChat API for Python](https://github.com/vrchatapi/vrcha
 
 ## 2. Using the application
 
-On first opening, you will see five files be created before the app closes by itself. Now is your chance to edit these files to how you see fit.
+On first opening, you will see a file be created before the app closes by itself.
 
-### Options.json
+### VRChat Status
 
 By Default:
 ```json
@@ -57,7 +57,7 @@ If you are having issues staying connected to SimplyPlural, you can change *atte
 
 Set *visible_on_load* to false if you do not want the programme to update the chatbox immediately.
 
-### Keybinds.json
+### Keybinds
 
 By Default:
 ```json
@@ -79,13 +79,12 @@ The keybinds are implemented using the [keyboard](https://github.com/boppreh/key
 * Toggle Time Fronting Format: `Alt + NUMPAD 9`
 * Force Update: `Ctrl + u`
 
-### Avatars.json
+### Member Dictionary
 
 By Default:
 ```json
 {
-    "name1": "avtr_id-id-id-id-id",
-    "name2": "avtr_id-id-id-id-id"
+    "name1": {"pronouns":"<Pronouns>","avatar":"<Avatar ID>"},
 }
 ```
 
@@ -94,35 +93,26 @@ https://vrchat.com/home/avatar/avtr_c38a1615-5bf5-42b4-84eb-a8b6c37cbd11
 
 Take the last part of the URL, and replace the text following the member's name. It should look like this:
 ```json
-{"Person's Name!":"avtr_c38a1615-5bf5-42b4-84eb-a8b6c37cbd11"}
+{"avatar":"avtr_c38a1615-5bf5-42b4-84eb-a8b6c37cbd11"}
 ```
 
-### Chatbox.json
+### Chatboxes
 
 By Default:
 ```json
 {
-    "generic":"#fronter\n#pronouns",
-    "time_digital":"#fronter\n#pronouns\nFronting #time",
-    "time_full":"#fronter\n#pronouns\nFronting #time",
-    "afk":"#fronter is\nnot here right now!",
-    "status":"#fronter"
+    "generic":"#fronter\n#pronouns"
 }
 ```
 
-This file is used to customise the output of the chatbox and statuses. There are five things available to change:
+This is used to customise the output of the chatbox and statuses.
 * *generic*: This is what is shown by default when the chatbox is enabled.
-* *afk*: This is what is shown as the first alternate chatbox, by default it shows an afk message.
-* *time_digital*: This is what is shown as the second alternate chatbox, by default it is used to show the time in a digital format.
-* *time_full*: This is what is shown as the third alternate chatbox, by default it is used to show the time in an extended format.
-* *status*: This is what is sent to the VRChat API if you log in. Only #fronter and #pronouns are available to use here.
 
 There are three custom variables to use in this file:
 * *\#fronter*: The name of the *\#fronter*.
 * *\#pronouns*: The pronouns of *\#fronter*.
-* *\#time*: The time since *\#fronter* was detected. Pressing the *time_full* keybind (Default: `Alt + NUMPAD 9`) changes it from digital (00:00:00) to full (0 hrs, 0 mins)
 
-### Auths.json
+### Auths
 
 By Default:
 ```json
@@ -136,6 +126,8 @@ After logging into the app, the authentication cookies are stored here, keep the
 
 There are currently some issues with the vrchatapi-python library, this library is a door to updating details on your VRChat account, specifically here it is used to update your account status. However, during testing, there have been moments in which a required module of the library is simply not detected.
 I have tried my best to prevent this from happening, but there may still be some issues. If some libraries are unable to be detected, let me know and I will see if I can update the programme when I have time.
+
+In this new version, not reliant on the now defunct SimplyPlural, I have not yet had the opportunity to allow you to change your status properly. This will come in a future update.
 
 # 4. Libraries
 

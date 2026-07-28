@@ -1,3 +1,4 @@
+# Version 0.1 VRC-Plural-Chatbox by Krismastime
 # This file is used for experimental ui features
 # I dont know anything about graphical interfaces when it comes to programming so if there are any issues let me know
 import sys, json, vrchat_plural_library, asyncio, http.client, queue, time, traceback
@@ -27,7 +28,8 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QInputDialog,
     QDialog,
-    QDialogButtonBox
+    QDialogButtonBox,
+    QSizePolicy
 )
 from PyQt6.QtGui import QColor, QPalette
 
@@ -38,8 +40,8 @@ class Program():
     def vrchat_plural_start(self,chatbox_preview,logger):
         vrchat_plural_library.taskcancelled = False
         save_data()
-        loop = asyncio.new_event_loop()
-        loop.run_until_complete(vrchat_plural_library.auth(load_settings(0),chatbox_preview,logger))
+        Program.loop = asyncio.new_event_loop()
+        self.loop.run_until_complete(vrchat_plural_library.main(load_settings(0),chatbox_preview,logger))
 
     def chatbox_fn(self, data):
         chatbox_preview.preview.setPlainText(data)
@@ -56,7 +58,7 @@ class WorkerSignals(QObject):
     finished = pyqtSignal(int)
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
-    chatbox = pyqtSignal(str)
+    chatboxlg = pyqtSignal(str)
     logger = pyqtSignal(str)
 
 class Worker(QRunnable):
@@ -68,7 +70,7 @@ class Worker(QRunnable):
         self.kwargs = kwargs
         self.signals = WorkerSignals()
         self.thread_id = kwargs.get("thread_id", 0)
-        self.kwargs["chatbox_preview"] = self.signals.chatbox
+        self.kwargs["chatbox_preview"] = self.signals.chatboxlg
         self.kwargs["logger"] = self.signals.logger
 
     @pyqtSlot()
@@ -209,6 +211,7 @@ class member_widget(QWidget):
         member_widget.memberdict = s["memberdict"]
 
         member_widget.fronters = []
+        member_widget.frontinfo = {}
 
         member_widget.layoutall = QVBoxLayout()
         member_widget.columns = QHBoxLayout()
@@ -319,7 +322,9 @@ class member_widget(QWidget):
                 self.id_boxes.append(QLabel(text=i))
                 self.pronouns_boxes.append(QLabel(text=self.memberdict[i]["pronouns"]))
                 self.avatar_boxes.append(QLineEdit(text=self.memberdict[i]["avatar"]))
-                self.front_boxes.append(QPushButton(text="✗")) ##↑↓
+                temp = QPushButton(text="✗")
+                temp.setEnabled(False)
+                self.front_boxes.append(temp) ##↑↓
                 self.delete_boxes.append(QPushButton(text="🗑"))
                 self.member_number.append(a)
                 a += 1
@@ -335,6 +340,7 @@ class member_widget(QWidget):
 
         for widget in self.member_number:
             try:
+                self.front_boxes[widget].setCheckable(True)
                 self.connect_front(self.front_boxes[widget],widget)
                 self.connect_delete(self.delete_boxes[widget],widget)
             except:
@@ -361,7 +367,13 @@ class member_widget(QWidget):
         else:
             self.front.itemAt(i+1).widget().setText("✗")
             self.fronters.remove(str(self.id.itemAt(i+1).widget().text()))
-        print(self.fronters)
+            try:
+                self.frontinfo.pop(str(self.id.itemAt(i+1).widget().text()))
+            except Exception as e:
+                start_options.traceback.setText("Already removed from front.")
+        for i in self.fronters:
+            self.frontinfo[i] = {"pronouns":self.memberdict[i]["pronouns"],"avatar":self.memberdict[i]["avatar"]}
+        asyncio.run(vrchat_plural_library.fronter_format(self.frontinfo))
         return
     
     def delete_member(self,i):
@@ -394,6 +406,174 @@ class output_log(QWidget):
         layout.addWidget(label)
         layout.addWidget(self.log)
         self.setLayout(layout) 
+
+class chatbox_widget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        s, tb = load_settings(x=2)
+        chatbox_widget.cbx_types = s["chatboxes"]
+
+        chatbox_widget.cbx_activecontent = ""
+
+        chatbox_widget.layoutall = QVBoxLayout()
+        chatbox_widget.columns = QHBoxLayout()
+
+        chatbox_widget.cbx_names = QVBoxLayout()
+        chatbox_widget.cbx_content = QVBoxLayout()
+        chatbox_widget.cbx_active = QVBoxLayout()
+        chatbox_widget.deleteBtn = QVBoxLayout()
+
+        chatbox_widget.newCbx = QHBoxLayout()
+
+        chatbox_widget.newCbxName = QLineEdit()
+        self.newCbxName.setPlaceholderText("Chatbox Name")
+        self.newCbxName.setMinimumHeight(50)
+        self.newCbx.addWidget(self.newCbxName)
+        chatbox_widget.newContent = QTextEdit()
+        self.newContent.setPlaceholderText("Chatbox Text")
+        self.newContent.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Expanding)
+        self.newContent.setMaximumHeight(50)
+        self.newCbx.addWidget(self.newContent)
+        
+
+        chatbox_widget.addCbx = QPushButton(text="Add Chatbox")
+        self.addCbx.clicked.connect(self.add_member)
+
+        self.columns.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layoutall.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.layoutall.addWidget(self.addCbx)
+        self.layoutall.addLayout(self.newCbx)
+        self.layoutall.addLayout(self.columns)
+        self.setLayout(self.layoutall)
+        self.list_members()
+
+    def add_member(self):
+        alert = QDialog()
+        if len(self.newCbxName.text()) < 1:
+            dlg = CustomDialog(message="Chatbox name cannot be empty")
+            dlg.exec()
+            return
+
+        self.cbx_types[self.newCbxName.text()] = self.newContent.toPlainText()
+
+        print(self.cbx_types)
+        self.newCbxName.setText("")
+        self.newContent.setText("")
+        self.list_members() #keeps layering everything on top of itself
+        return
+
+    def list_members(self):
+
+        # for i in memberdict:
+        #     if i in settings["memberdict"]:
+        #         print(memberdict[i][1])
+        #         if memberdict[i][1] != settings["memberdict"][i]["pronouns"]:
+        #             settings["memberdict"][i]["pronouns"] = memberdict[i][1]
+        #     else:
+        #         settings["memberdict"][i] = {
+        #             "name":memberdict[i][0],
+        #             "avatar":"",
+        #             "pronouns":memberdict[i][1]
+        #             }
+
+        for i in reversed(range(self.cbx_names.count())):
+            self.cbx_names.itemAt(i).widget().setParent(None)
+            self.cbx_content.itemAt(i).widget().setParent(None)
+            self.cbx_active.itemAt(i).widget().setParent(None)
+            self.deleteBtn.itemAt(i).widget().setParent(None)
+
+        for i in self.columns.children():
+            self.columns.removeItem(i)
+
+        self.cbx_names.setSpacing(0)
+        id_label = QLabel(text="Chatbox")
+        self.cbx_names.addWidget(id_label)
+        
+        self.cbx_content.setSpacing(0)
+        pronouns_label = QLabel(text="Content")
+        self.cbx_content.addWidget(pronouns_label)
+
+        self.cbx_active.setSpacing(0)
+        front_label = QLabel(text="Visible")
+        self.cbx_active.addWidget(front_label)
+
+        self.deleteBtn.setSpacing(0)
+        delete_label = QLabel(text="Delete")
+        self.deleteBtn.addWidget(delete_label)
+
+        chatbox_widget.cbxNameBoxes = []
+        chatbox_widget.cbxContentBoxes = []
+        chatbox_widget.cbxNumber = []
+        chatbox_widget.cbxActiveButtons = []
+        chatbox_widget.cbxDeleteButtons = []
+
+        #chatbox_widget.memberdict = memberdict
+        a = 0
+
+        for i in self.cbx_types:
+            if i != "name":
+                self.cbxNameBoxes.append(QLabel(text=i))
+                tempcontent = QTextEdit()
+                tempcontent.setPlainText(self.cbx_types[i])
+                tempcontent.setReadOnly(True)
+                tempcontent.setMaximumHeight(50)
+                self.cbxContentBoxes.append(tempcontent)
+                tempbutton = QPushButton(text="✗")
+                self.cbxActiveButtons.append(tempbutton) ##↑↓
+                self.cbxDeleteButtons.append(QPushButton(text="🗑"))
+                self.cbxNumber.append(a)
+                a += 1
+                
+        
+        for i in range(len(self.cbxNameBoxes)):
+            self.cbx_names.addWidget(self.cbxNameBoxes[i])
+            self.cbx_content.addWidget(self.cbxContentBoxes[i])
+
+            self.cbx_active.addWidget(self.cbxActiveButtons[i])
+            self.deleteBtn.addWidget(self.cbxDeleteButtons[i])
+
+        for widget in self.cbxNumber:
+            try:
+                self.cbxActiveButtons[widget].setCheckable(False)
+                self.connect_front(self.cbxActiveButtons[widget],widget)
+                self.connect_delete(self.cbxDeleteButtons[widget],widget)
+            except:
+                continue
+
+        self.columns.addLayout(self.cbx_names)
+        self.columns.addLayout(self.cbx_content)
+        self.columns.addLayout(self.cbx_active)
+        self.columns.addLayout(self.deleteBtn)
+
+        self.setLayout(self.layoutall)
+    
+    def connect_front(self, widget,num):
+        widget.clicked.connect(lambda: self.front_toggle(num))
+
+    def connect_delete(self,widget,num):
+        widget.clicked.connect(lambda: self.delete_member(num))
+
+    def front_toggle(self,i):
+        for a in self.cbxActiveButtons:
+            if a != self.cbx_active.itemAt(i+1).widget():
+                a.setText("✗")
+        if self.cbx_active.itemAt(i+1).widget().text() == "✗":
+            self.cbx_active.itemAt(i+1).widget().setText("✓")
+            self.cbx_activecontent = str(self.cbx_content.itemAt(i+1).widget().toPlainText())
+        else:
+            self.cbx_active.itemAt(i+1).widget().setText("✗")
+            try:
+                self.cbx_activecontent = ""
+            except Exception as e:
+                start_options.traceback.setText("Already removed from front.")
+        vrchat_plural_library.chatbox_format(self.cbx_activecontent)
+        return
+    
+    def delete_member(self,i):
+        self.cbx_types.pop(str(self.cbx_names.itemAt(i+1).widget().text()))
+        self.list_members()
 
 class options_widget(QWidget):
     def __init__(self):
@@ -429,7 +609,7 @@ class start_options(QWidget):
         
         start_options.startBtn = QPushButton("Start",self)
         self.startBtn.setCheckable(True)
-        self.startBtn.setEnabled(False)
+        self.startBtn.setEnabled(True)
         self.startBtn.clicked.connect(self.start_button)
         self.reloadBtn = QPushButton("Import Settings",self)
         self.reloadBtn.clicked.connect(self.reload_button)
@@ -456,12 +636,16 @@ class start_options(QWidget):
     def start_button(self):
         if self.startBtn.isChecked():
 
-            if int(member_widget.columns.count()) < 3:
+            if int(member_widget.columns.count()) < 1:
                 start_options.traceback.setText("Member list cannot be empty, gather members first.")
                 self.startBtn.setChecked(False)
+                for i in member_widget.front_boxes:
+                    i.setEnabled(False)
             else:
                 self.startBtn.setText("Stop")
-                MainWindow.start()
+                self.start()
+                for i in member_widget.front_boxes:
+                    i.setEnabled(True)
         else:
             self.startBtn.setText("Start")
             chatbox_preview.preview.setPlainText("Not Connected")
@@ -488,6 +672,13 @@ class start_options(QWidget):
         load_settings(2)
         self.traceback.setText("Reset settings to defaults")
 
+    def start(self):
+        program = Program()
+        startup = Worker(program.vrchat_plural_start)
+        startup.signals.chatboxlg.connect(program.chatbox_fn)
+        startup.signals.logger.connect(program.logging_fn)
+        MainWindow.threadpool.start(startup)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -506,13 +697,14 @@ class MainWindow(QMainWindow):
     def draw_layout(self):
         layout = QGridLayout()
 
-        layout.addWidget(login_widget(),0,0,alignment=Qt.AlignmentFlag.AlignTop)
+        #layout.addWidget(login_widget(),0,0,alignment=Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(QLabel(text="Status updating coming in future update!"),0,0,alignment=Qt.AlignmentFlag.AlignTop)
         layout.addWidget(output_log(),2,0,alignment=Qt.AlignmentFlag.AlignTop)
         layout.addWidget(start_options(),3,0,alignment=Qt.AlignmentFlag.AlignBottom)
 
         layout.addWidget(member_widget(),0,1,alignment=Qt.AlignmentFlag.AlignTop)
-        layout.addWidget(chatbox_preview(),1,1,alignment=Qt.AlignmentFlag.AlignTop)
-        layout.addWidget(options_widget(),2,1,alignment=Qt.AlignmentFlag.AlignBottom)
+        layout.addWidget(chatbox_preview(),2,1,alignment=Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(chatbox_widget(),1,1,alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.ping,3,1,alignment=Qt.AlignmentFlag.AlignBottom)
 
         widget = QWidget()
@@ -547,6 +739,7 @@ def save_data():
     collection = {
         "auths":auths,
         "memberdict": member_widget.memberdict,
+        "chatboxes":chatbox_widget.cbx_types
         }
 
     with open("settings.json","w") as file:
