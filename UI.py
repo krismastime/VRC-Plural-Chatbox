@@ -72,19 +72,24 @@ class Worker(QRunnable):
         self.thread_id = kwargs.get("thread_id", 0)
         self.kwargs["chatbox_preview"] = self.signals.chatboxlg
         self.kwargs["logger"] = self.signals.logger
+        self.is_running = True
 
     @pyqtSlot()
     def run(self):
-        try:
-            result = self.fn(*self.args,**self.kwargs)
-        except Exception:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
-        else:
-            self.signals.result.emit(result)
-        finally:
-            self.signals.finished.emit(self.thread_id)
+        while self.is_running:
+            try:
+                result = self.fn(*self.args,**self.kwargs)
+            except Exception:
+                traceback.print_exc()
+                exctype, value = sys.exc_info()[:2]
+                self.signals.error.emit((exctype, value, traceback.format_exc()))
+            else:
+                self.signals.result.emit(result)
+            finally:
+                self.signals.finished.emit(self.thread_id)
+
+    def stop(self):
+        self.is_running = False
 
 
 class login_widget(QWidget):
@@ -208,7 +213,12 @@ class member_widget(QWidget):
         super().__init__()
 
         s, tb = load_settings(x=2)
-        member_widget.memberdict = s["memberdict"]
+
+        try:
+            member_widget.memberdict = s["memberdict"]
+        except:
+            if "generating" in tb:
+                dlg = CustomDialog(message="Unable to parse settings.json or file does not exist. Generating...")
 
         member_widget.fronters = []
         member_widget.frontinfo = {}
@@ -674,10 +684,10 @@ class start_options(QWidget):
 
     def start(self):
         program = Program()
-        startup = Worker(program.vrchat_plural_start)
-        startup.signals.chatboxlg.connect(program.chatbox_fn)
-        startup.signals.logger.connect(program.logging_fn)
-        MainWindow.threadpool.start(startup)
+        start_options.startup = Worker(program.vrchat_plural_start)
+        self.startup.signals.chatboxlg.connect(program.chatbox_fn)
+        self.startup.signals.logger.connect(program.logging_fn)
+        MainWindow.threadpool.start(self.startup)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -710,6 +720,13 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
+
+    def closeEvent(self, event):
+        output_log.log.setPlainText("Closing Application.")
+        vrchat_plural_library.taskcancelled = True
+        start_options.startup.stop()
+        self.threadpool.waitForDone()
+        event.accept()
 
 
 def getCheckboxState(state):
