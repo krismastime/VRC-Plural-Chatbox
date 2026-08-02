@@ -219,6 +219,8 @@ class member_widget(QWidget):
         except:
             if "generating" in tb:
                 dlg = CustomDialog(message="Unable to parse settings.json or file does not exist. Generating...")
+                dlg.exec()
+                sys.exit()
 
         member_widget.fronters = []
         member_widget.frontinfo = {}
@@ -723,9 +725,12 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         output_log.log.setPlainText("Closing Application.")
-        vrchat_plural_library.taskcancelled = True
-        start_options.startup.stop()
-        self.threadpool.waitForDone()
+        try:
+            vrchat_plural_library.taskcancelled = True
+            start_options.startup.stop()
+            self.threadpool.waitForDone()
+        except:
+            pass
         event.accept()
 
 
@@ -768,4 +773,4 @@ app = QApplication(sys.argv)
 window = MainWindow()
 window.show()
 
-app.exec()
+sys.exit(app.exec())
